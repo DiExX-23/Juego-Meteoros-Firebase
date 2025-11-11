@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "341202723377",
+    "project_id": "juegometeoros",
+    "storage_bucket": "juegometeoros.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:341202723377:android:9ad315eccc05fcff83ab10",
+        "android_client_info": {
+          "package_name": "com.ClaseFirebase.JuegoMeteoros"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_Am1yja3gwkQXR2F5HJOZ8ejJCWmi1V8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
