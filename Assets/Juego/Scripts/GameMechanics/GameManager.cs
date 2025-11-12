@@ -8,13 +8,12 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance { get; private set; }
     public MeteorSpawner activeSpawner;
     public string lossSceneName = "Clasificacion";
-    
-    private bool isTransitioning = false;  // Evitar múltiples transiciones
-    private bool isGameOver = false;       // Estado del juego
+
+    private bool isTransitioning = false;
+    private bool isGameOver = false;
 
     private void Start()
     {
-        // Asegurar que GameServices existe
         if (GameServices.Instance == null)
         {
             var servicesGo = new GameObject("GameServices");
@@ -32,19 +31,19 @@ public class GameManager : MonoBehaviour
         Instance = this;
     }
 
-    public async void HandlePlayerHit()
+    public void HandlePlayerHit()
     {
-        if (isTransitioning || isGameOver) return;  // Evitar múltiples llamadas
-        
+        if (isTransitioning || isGameOver) return;
+
         isTransitioning = true;
         isGameOver = true;
-        
-        if (activeSpawner != null) 
+
+        if (activeSpawner != null)
         {
             activeSpawner.isSpawning = false;
             activeSpawner.StopAllCoroutines();
         }
-        
+
         string playerName = PlayerProfile.Instance != null ? PlayerProfile.Instance.playerName : "Player";
         int score = ScoreManager.Instance != null ? ScoreManager.Instance.currentScore : 0;
 
@@ -56,7 +55,7 @@ public class GameManager : MonoBehaviour
                 int dodged = GameSession.Instance != null ? GameSession.Instance.meteorsDodged : 0;
                 int attempts = GameSession.Instance != null ? GameSession.Instance.attempts : 1;
 
-                await FirestoreService.Instance.AddHighscoreAsync(playerName, score, duration, dodged, attempts);
+                FireAndForgetSave(playerName, score, duration, dodged, attempts);
             }
             catch (Exception)
             {
@@ -69,13 +68,40 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        await Task.Delay(500);
+        _ = ProceedToLossSceneAsync();
+    }
 
+    private async void FireAndForgetSave(string playerName, int score, float duration, int dodged, int attempts)
+    {
+        try
+        {
+            var task = FirestoreService.Instance.AddHighscoreAsync(playerName, score, duration, dodged, attempts);
+            await task;
+        }
+        catch (Exception)
+        {
+            if (LeaderboardManager.Instance == null)
+            {
+                var go = new GameObject("LeaderboardManager");
+                go.AddComponent<LeaderboardManager>();
+            }
+            LeaderboardManager.Instance?.AddEntry(playerName, score);
+        }
+    }
+
+    private async Task ProceedToLossSceneAsync()
+    {
+        await Task.Delay(50);
         Debug.Log($"Loading loss scene: {lossSceneName}");
         if (!string.IsNullOrEmpty(lossSceneName))
         {
-            SceneManager.LoadScene(lossSceneName);
-            return;
+            var loadOp = SceneManager.LoadSceneAsync(lossSceneName, LoadSceneMode.Single);
+            if (loadOp != null)
+            {
+                while (!loadOp.isDone)
+                    await Task.Yield();
+                return;
+            }
         }
         ReloadCurrentScene();
     }

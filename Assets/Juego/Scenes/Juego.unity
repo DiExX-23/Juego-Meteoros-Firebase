@@ -945,7 +945,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   scoreText: {fileID: 920118466}
-  pointsPerSecond: 1
+  pointsPerSecond: 10
 --- !u!1 &2074478146
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,13 +1,15 @@
 using System;
 using System.Text;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
-using System.Threading.Tasks;
 
 public class LeaderboardSimpleUI : MonoBehaviour
 {
+    public static LeaderboardSimpleUI Instance { get; private set; }
+
     [Header("UI Elements")]
     public TextMeshProUGUI ranksText;
     public TextMeshProUGUI namesText;
@@ -19,6 +21,32 @@ public class LeaderboardSimpleUI : MonoBehaviour
     public Button backButton;
     public string menuSceneName = "Menu inicio";
 
+    private Canvas persistentCanvas;
+
+    void Awake()
+    {
+        // Singleton
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+
+        // Crear un Canvas independiente para UI persistente si no existe
+        persistentCanvas = GetComponent<Canvas>();
+        if (persistentCanvas == null)
+        {
+            persistentCanvas = gameObject.AddComponent<Canvas>();
+            persistentCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            gameObject.AddComponent<CanvasScaler>();
+            gameObject.AddComponent<GraphicRaycaster>();
+        }
+
+        transform.SetParent(null); // Desparentar de cualquier Canvas de la escena
+        DontDestroyOnLoad(gameObject);
+    }
+
     async void Start()
     {
         if (backButton != null)
@@ -26,16 +54,14 @@ public class LeaderboardSimpleUI : MonoBehaviour
             backButton.onClick.AddListener(OnBack);
         }
 
-        // Esperar a que Firebase esté inicializado
         var dependencyStatus = await Firebase.FirebaseApp.CheckAndFixDependenciesAsync();
         if (dependencyStatus == Firebase.DependencyStatus.Available)
         {
-            // Si no existe FirestoreService, crearlo
             if (FirestoreService.Instance == null)
             {
                 var go = new GameObject("FirestoreService");
                 go.AddComponent<FirestoreService>();
-                await Task.Delay(100); // Pequeña espera para que se inicialice
+                await Task.Delay(100);
             }
 
             if (FirestoreService.Instance != null)
@@ -44,13 +70,13 @@ public class LeaderboardSimpleUI : MonoBehaviour
                 FirestoreService.Instance.StartListeningTop(50);
             }
         }
-        
+
         Refresh();
     }
 
     async void OnEnable()
     {
-        ClearUI(); // Limpiar UI mientras se inicializa
+        ClearUI();
         await WaitForFirebaseInit();
         Refresh();
     }
@@ -69,8 +95,8 @@ public class LeaderboardSimpleUI : MonoBehaviour
     private async Task WaitForFirebaseInit()
     {
         if (FirebaseInitializer.IsInitialized) return;
-        
-        for (int i = 0; i < 10; i++) // Máximo 10 intentos
+
+        for (int i = 0; i < 10; i++)
         {
             if (FirestoreService.Instance != null) return;
             await Task.Delay(100);
@@ -101,23 +127,17 @@ public class LeaderboardSimpleUI : MonoBehaviour
     {
         if (remote == null || remote.Count == 0)
         {
-            if (ranksText != null) ranksText.text = "";
-            if (namesText != null) namesText.text = "";
-            if (scoresText != null) scoresText.text = "";
-            if (attemptsText != null) attemptsText.text = "";
-            if (meteorsDodgedText != null) meteorsDodgedText.text = "";
-            if (sessionDurationText != null) sessionDurationText.text = "";
-            if (timestampText != null) timestampText.text = "";
+            ClearUI();
             return;
         }
 
-        var sbRanks = new System.Text.StringBuilder();
-        var sbNames = new System.Text.StringBuilder();
-        var sbScores = new System.Text.StringBuilder();
-        var sbAttempts = new System.Text.StringBuilder();
-        var sbMeteorsDodged = new System.Text.StringBuilder();
-        var sbSessionDuration = new System.Text.StringBuilder();
-        var sbTimestamp = new System.Text.StringBuilder();
+        var sbRanks = new StringBuilder();
+        var sbNames = new StringBuilder();
+        var sbScores = new StringBuilder();
+        var sbAttempts = new StringBuilder();
+        var sbMeteorsDodged = new StringBuilder();
+        var sbSessionDuration = new StringBuilder();
+        var sbTimestamp = new StringBuilder();
 
         for (int i = 0; i < remote.Count; i++)
         {
@@ -130,7 +150,7 @@ public class LeaderboardSimpleUI : MonoBehaviour
             sbSessionDuration.Append(e.sessionDuration >= 0 ? FormatDuration(e.sessionDuration) : "00:00");
             DateTime timestamp = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMilliseconds(e.timestampMillis);
             sbTimestamp.Append(FormatTimestamp(timestamp));
-            
+
             if (i < remote.Count - 1)
             {
                 sbRanks.AppendLine();
@@ -167,12 +187,12 @@ public class LeaderboardSimpleUI : MonoBehaviour
         Debug.Log("OnBack called, returning to: " + menuSceneName);
         if (!string.IsNullOrEmpty(menuSceneName))
         {
-            // Asegurarnos de desuscribirnos de Firebase antes de cambiar de escena
             if (FirestoreService.Instance != null)
             {
                 FirestoreService.Instance.OnHighscoresUpdated -= OnRemoteHighscores;
                 FirestoreService.Instance.StopListening();
             }
+
             SceneManager.LoadScene(menuSceneName);
         }
     }
