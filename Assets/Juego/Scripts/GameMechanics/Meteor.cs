@@ -11,6 +11,7 @@ public class Meteor : MonoBehaviour
     Rigidbody body;
     bool collidedWithPlayer;
     bool isProcessingCollision;
+    private float startTime;
 
     void Awake()
     {
@@ -33,23 +34,17 @@ public class Meteor : MonoBehaviour
     void FixedUpdate()
     {
         if (directFallSpeed > 0f)
-        {
             body.linearVelocity = Vector3.down * directFallSpeed;
-        }
 
-        // Destruir si está fuera de la pantalla o ha pasado mucho tiempo
         if (transform.position.y <= despawnY || Time.time - startTime > lifetimeSeconds)
         {
             if (!collidedWithPlayer)
             {
-                ScoreManager.Instance?.AddPoints(dodgePoints);
-                GameSession.Instance?.RegisterMeteorDodged();
+                ScoreManager.Instance?.RegisterMeteorDodged(dodgePoints);
             }
             Destroy(gameObject);
         }
     }
-
-    private float startTime;
 
     void OnCollisionEnter(Collision collision)
     {
@@ -59,10 +54,7 @@ public class Meteor : MonoBehaviour
         if (collision.collider.CompareTag("Player"))
         {
             collidedWithPlayer = true;
-            if (GameManager.Instance != null)
-            {
-                GameManager.Instance.HandlePlayerHit();
-            }
+            GameManager.Instance?.HandlePlayerHit();
         }
         Destroy(gameObject);
     }

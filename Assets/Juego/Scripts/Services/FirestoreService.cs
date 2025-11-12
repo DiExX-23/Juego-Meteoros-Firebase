@@ -47,8 +47,6 @@ public class FirestoreService : MonoBehaviour
         {
             try
             {
-                Debug.Log($"Intento {attempt}/{maxAttempts} de inicializar Firestore...");
-
                 if (!FirebaseInitializer.IsInitialized)
                 {
 #if UNITY_2023_1_OR_NEWER
@@ -75,19 +73,14 @@ public class FirestoreService : MonoBehaviour
                 if (db != null)
                 {
                     initialized = true;
-                    Debug.Log($"Firestore inicializado correctamente en el intento {attempt}");
                     return;
                 }
 
                 throw new Exception("No se pudo obtener la instancia de Firestore");
             }
-            catch (Exception ex)
+            catch
             {
-                Debug.LogWarning($"Error de inicialización de Firestore (intento {attempt}/{maxAttempts}): {ex.Message}");
-                if (attempt == maxAttempts)
-                    Debug.LogError("Falló la inicialización de Firestore después de todos los intentos");
-                else
-                    await Task.Delay(1000);
+                if (attempt < maxAttempts) await Task.Delay(1000);
             }
         }
     }
@@ -146,58 +139,28 @@ public class FirestoreService : MonoBehaviour
     public async void StartListeningTop(int topN = 50)
     {
         await EnsureInitialized();
-        try
-        {
-            StopListening();
+        StopListening();
 
-            if (db == null)
+        var query = db.Collection("Highscores").OrderByDescending("score").Limit(topN);
+        listener = query.Listen(snapshot =>
+        {
+            if (snapshot == null || snapshot.Count == 0)
             {
-                Debug.LogError("Firestore no inicializado, no se puede iniciar escucha.");
+                OnHighscoresUpdated?.Invoke(new List<RemoteHighscore>());
                 return;
             }
 
-            var query = db.Collection("Highscores").OrderByDescending("score").Limit(topN);
+            var list = new List<RemoteHighscore>();
+            foreach (var doc in snapshot.Documents)
+                list.Add(ParseDoc(doc));
 
-            listener = query.Listen(snapshot =>
-            {
-                try
-                {
-                    if (snapshot == null || snapshot.Count == 0)
-                    {
-                        OnHighscoresUpdated?.Invoke(new List<RemoteHighscore>());
-                        return;
-                    }
-
-                    var list = new List<RemoteHighscore>();
-                    foreach (var doc in snapshot.Documents)
-                        list.Add(ParseDoc(doc));
-
-                    OnHighscoresUpdated?.Invoke(list);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"Error procesando datos de Firestore: {ex.Message}");
-                }
-            });
-
-            Debug.Log("🔥 Escucha activa de puntuaciones (Leaderboard actualizándose en tiempo real)");
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"Error al iniciar la escucha de puntuaciones: {ex.Message}");
-        }
+            OnHighscoresUpdated?.Invoke(list);
+        });
     }
 
     public void StopListening()
     {
-        try
-        {
-            listener?.Stop();
-            listener = null;
-        }
-        catch
-        {
-            listener = null;
-        }
+        listener?.Stop();
+        listener = null;
     }
 }

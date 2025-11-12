@@ -14,11 +14,11 @@ public class MeteorSpawner : MonoBehaviour
     [Header("Fall speed progression")]
     public float initialFallSpeed = 1.0f;
     public float fallAcceleration = 0.1f;
-    public float maxFallSpeed = 10.0f;  // Velocidad máxima de caída
+    public float maxFallSpeed = 10.0f; 
     private float currentFallSpeed = 0f;
-    
+
     [Header("Spawn Control")]
-    public float minSpawnInterval = 0.5f;  // Intervalo mínimo entre meteoritos
+    public float minSpawnInterval = 0.5f;  
     private float currentSpawnInterval;
 
     void OnEnable()
@@ -40,10 +40,8 @@ public class MeteorSpawner : MonoBehaviour
         {
             SpawnSingleMeteor();
             
-            // Incrementar velocidad de caída con límite
             currentFallSpeed = Mathf.Min(currentFallSpeed + (fallAcceleration * spawnInterval), maxFallSpeed);
             
-            // Ajustar intervalo de spawn con límite
             currentSpawnInterval = Mathf.Max(spawnInterval - (Time.timeSinceLevelLoad * 0.01f), minSpawnInterval);
             
             yield return new WaitForSeconds(currentSpawnInterval);

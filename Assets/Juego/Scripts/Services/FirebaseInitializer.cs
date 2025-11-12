@@ -12,7 +12,6 @@ public class FirebaseInitializer : MonoBehaviour
 
     private void Awake()
     {
-        // Implementación del patrón Singleton
         if (Instance != null && Instance != this)
         {
             Debug.LogWarning("Se encontró una instancia existente de FirebaseInitializer, destruyendo la nueva...");
@@ -45,7 +44,6 @@ public class FirebaseInitializer : MonoBehaviour
                 
                 try
                 {
-                    // Intentar obtener la instancia existente primero
                     AppInstance = FirebaseApp.DefaultInstance;
                     
                     if (AppInstance != null)
@@ -55,7 +53,6 @@ public class FirebaseInitializer : MonoBehaviour
                         return;
                     }
 
-                    // Si no hay instancia, crear una nueva
                     var options = new AppOptions();
                     AppInstance = FirebaseApp.Create(options);
                     

@@ -12,15 +12,6 @@ public class GameManager : MonoBehaviour
     private bool isTransitioning = false;
     private bool isGameOver = false;
 
-    private void Start()
-    {
-        if (GameServices.Instance == null)
-        {
-            var servicesGo = new GameObject("GameServices");
-            servicesGo.AddComponent<GameServices>();
-        }
-    }
-
     void Awake()
     {
         if (Instance != null && Instance != this)
@@ -31,6 +22,15 @@ public class GameManager : MonoBehaviour
         Instance = this;
     }
 
+    private void Start()
+    {
+        if (GameServices.Instance == null)
+        {
+            var servicesGo = new GameObject("GameServices");
+            servicesGo.AddComponent<GameServices>();
+        }
+    }
+
     public void HandlePlayerHit()
     {
         if (isTransitioning || isGameOver) return;
@@ -38,35 +38,22 @@ public class GameManager : MonoBehaviour
         isTransitioning = true;
         isGameOver = true;
 
-        if (activeSpawner != null)
-        {
-            activeSpawner.isSpawning = false;
-            activeSpawner.StopAllCoroutines();
-        }
+        activeSpawner?.StopAllCoroutines();
+        if (activeSpawner != null) activeSpawner.isSpawning = false;
 
-        string playerName = PlayerProfile.Instance != null ? PlayerProfile.Instance.playerName : "Player";
+        string playerName = PlayerProfile.Instance?.playerName ?? "Player";
         int score = ScoreManager.Instance != null ? ScoreManager.Instance.currentScore : 0;
 
-        if (FirestoreService.Instance != null)
-        {
-            try
-            {
-                float duration = GameSession.Instance != null ? GameSession.Instance.GetSessionDuration() : 0f;
-                int dodged = GameSession.Instance != null ? GameSession.Instance.meteorsDodged : 0;
-                int attempts = GameSession.Instance != null ? GameSession.Instance.attempts : 1;
+        GameSession.Instance?.EndSession(score);
 
-                FireAndForgetSave(playerName, score, duration, dodged, attempts);
-            }
-            catch (Exception)
-            {
-                if (LeaderboardManager.Instance == null)
-                {
-                    var go = new GameObject("LeaderboardManager");
-                    go.AddComponent<LeaderboardManager>();
-                }
-                LeaderboardManager.Instance?.AddEntry(playerName, score);
-            }
-        }
+        float sessionDuration = GameSession.Instance?.sessionDuration ?? 0f;
+        int dodged = GameSession.Instance?.meteorsDodged ?? 0;
+        int attempts = GameSession.Instance?.attempts ?? 1;
+
+        if (FirestoreService.Instance != null)
+            FireAndForgetSave(playerName, score, sessionDuration, dodged, attempts);
+        else
+            LeaderboardManager.Instance?.AddEntry(playerName, score);
 
         _ = ProceedToLossSceneAsync();
     }
@@ -75,16 +62,10 @@ public class GameManager : MonoBehaviour
     {
         try
         {
-            var task = FirestoreService.Instance.AddHighscoreAsync(playerName, score, duration, dodged, attempts);
-            await task;
+            await FirestoreService.Instance.AddHighscoreAsync(playerName, score, duration, dodged, attempts);
         }
-        catch (Exception)
+        catch
         {
-            if (LeaderboardManager.Instance == null)
-            {
-                var go = new GameObject("LeaderboardManager");
-                go.AddComponent<LeaderboardManager>();
-            }
             LeaderboardManager.Instance?.AddEntry(playerName, score);
         }
     }
@@ -92,34 +73,12 @@ public class GameManager : MonoBehaviour
     private async Task ProceedToLossSceneAsync()
     {
         await Task.Delay(50);
-        Debug.Log($"Loading loss scene: {lossSceneName}");
         if (!string.IsNullOrEmpty(lossSceneName))
         {
             var loadOp = SceneManager.LoadSceneAsync(lossSceneName, LoadSceneMode.Single);
-            if (loadOp != null)
-            {
-                while (!loadOp.isDone)
-                    await Task.Yield();
-                return;
-            }
+            while (!loadOp.isDone) await Task.Yield();
         }
-        ReloadCurrentScene();
-    }
-
-    async System.Threading.Tasks.Task SaveAndProceed(FirestoreService svc, string playerName, int score, float duration, int dodged, int attempts)
-    {
-        try
-        {
-            await svc.AddHighscoreAsync(playerName, score, duration, dodged, attempts);
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogWarning("Firestore save failed: " + ex);
-        }
-    }
-
-    void ReloadCurrentScene()
-    {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        else
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }

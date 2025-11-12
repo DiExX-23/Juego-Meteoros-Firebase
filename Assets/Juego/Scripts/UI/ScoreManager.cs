@@ -6,17 +6,13 @@ using System.Threading.Tasks;
 public class ScoreManager : MonoBehaviour
 {
     public static ScoreManager Instance { get; private set; }
-    
-    [Header("UI References")]
-    [SerializeField] private TextMeshProUGUI scoreText;
 
-    [Header("Score Settings")]
-    [SerializeField] private float pointsPerSecond = 1f;
-    
+    [SerializeField] private TextMeshProUGUI scoreText;
+    [SerializeField] private float pointsPerSecond = 5f;
+
     public int currentScore { get; private set; }
     private bool isRunning;
     private float scoreAccumulator;
-    private float sessionStartTime;
 
     void Awake()
     {
@@ -39,9 +35,7 @@ public class ScoreManager : MonoBehaviour
     {
         var dependencyStatus = await Firebase.FirebaseApp.CheckAndFixDependenciesAsync();
         if (dependencyStatus == Firebase.DependencyStatus.Available)
-        {
-            await Task.Delay(1000); // Dar tiempo para que Firestore se inicialice completamente
-        }
+            await Task.Delay(1000);
     }
 
     void Update()
@@ -65,7 +59,7 @@ public class ScoreManager : MonoBehaviour
     void UpdateScoreDisplay()
     {
         if (scoreText == null) return;
-        var playerName = PlayerProfile.Instance?.playerName ?? "Player";
+        string playerName = PlayerProfile.Instance?.playerName ?? "Player";
         scoreText.text = $"{playerName} - Score: {currentScore}";
     }
 
@@ -73,57 +67,48 @@ public class ScoreManager : MonoBehaviour
     {
         currentScore = 0;
         scoreAccumulator = 0f;
-        sessionStartTime = Time.time;
         UpdateScoreDisplay();
+        StartRunning();
     }
 
     public void StartRunning()
     {
+        if (isRunning) return;
         isRunning = true;
-        scoreAccumulator = 0f;
-        sessionStartTime = Time.time;
-        if (GameSession.Instance != null)
-        {
-            GameSession.Instance.StartSession();
-        }
+        GameSession.Instance?.StartSession();
     }
 
     public void StopRunning()
     {
         if (!isRunning) return;
-        
         isRunning = false;
-        float sessionDuration = Time.time - sessionStartTime;
-        
+
+        GameSession.Instance?.EndSession(currentScore);
+
+        float sessionDuration = GameSession.Instance?.sessionDuration ?? 0f;
+        int meteorsDodged = GameSession.Instance?.meteorsDodged ?? 0;
+        int attempts = GameSession.Instance?.attempts ?? 1;
+
         if (FirestoreService.Instance != null)
-        {
-            SaveScoreToFirebase(sessionDuration);
-        }
+            SaveScoreToFirebase(currentScore, sessionDuration, meteorsDodged, attempts);
     }
 
-    private async void SaveScoreToFirebase(float sessionDuration)
+    public void RegisterMeteorDodged(int dodgePoints)
+    {
+        AddPoints(dodgePoints);
+        GameSession.Instance?.RegisterMeteorDodged();
+    }
+
+    private async void SaveScoreToFirebase(int score, float sessionDuration, int meteorsDodged, int attempts)
     {
         try
         {
-            string playerName = PlayerProfile.Instance != null ? PlayerProfile.Instance.playerName : "Player";
-            int meteorsDodged = GameSession.Instance != null ? GameSession.Instance.meteorsDodged : 0;
-            int attempts = GameSession.Instance != null ? GameSession.Instance.attempts : 1;
-
-            await FirestoreService.Instance.AddHighscoreAsync(
-                playerName,
-                currentScore,
-                sessionDuration,
-                meteorsDodged,
-                attempts
-            );
+            string playerName = PlayerProfile.Instance?.playerName ?? "Player";
+            await FirestoreService.Instance.AddHighscoreAsync(playerName, score, sessionDuration, meteorsDodged, attempts);
         }
-        catch (System.Exception)
+        catch
         {
-            if (LeaderboardManager.Instance != null)
-            {
-                string playerName = PlayerProfile.Instance != null ? PlayerProfile.Instance.playerName : "Player";
-                LeaderboardManager.Instance.AddEntry(playerName, currentScore);
-            }
+            LeaderboardManager.Instance?.AddEntry(PlayerProfile.Instance?.playerName ?? "Player", score);
         }
     }
 }
