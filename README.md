@@ -60,7 +60,7 @@ Estos datos se acumulan en memoria y se reinician al iniciar una nueva sesión.
 - Unity **6000.0.36f1** o superior.  
 - SDK de Android configurado.  
 - Cuenta de **Firebase** con un proyecto creado.  
-- Archivo **google-services.json** descargado desde la consola de Firebase y ubicado en:
+- Archivo **google-services.json** descargado desde la consola de Firebase y ubicado en assets
 
 ### 2. Configuración en Unity
 1. Abre el proyecto desde Unity Hub.  
